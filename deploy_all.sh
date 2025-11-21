@@ -15,9 +15,9 @@ for DEVICE in $DEVICES; do
     (
         echo "Clearing logcat on device: $DEVICE"
         adb -s $DEVICE logcat -c
-        echo "Deploying to device: $DEVICE"
+        echo "Deploy and run on device: $DEVICE"
         adb -s $DEVICE install -r -g app/build/outputs/apk/debug/app-debug.apk
-        adb -s $DEVICE shell am start -n info.benjaminhill.simplemesh/.MainActivity
+        adb -s $DEVICE shell am start -n info.benjaminhill.beaconmesh/.MainActivity
     ) &
 done
 

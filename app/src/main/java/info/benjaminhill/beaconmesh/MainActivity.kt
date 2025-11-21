@@ -30,7 +30,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        // Just use a safe way to init Timber without relying on generated BuildConfig which might be flaky in this setup
+        // Safe way to init Timber without relying on generated BuildConfig which might be flaky in this setup
         Timber.plant(Timber.DebugTree())
 
         val deviceIdentity = DeviceIdentity(applicationContext)

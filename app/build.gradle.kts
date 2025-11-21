@@ -7,12 +7,12 @@ plugins {
 
 android {
     namespace = "info.benjaminhill.beaconmesh"
-    compileSdk = 35 // Set explicit stable SDK version
+    compileSdk = 36 // Set explicit stable SDK version
 
     defaultConfig {
         applicationId = "info.benjaminhill.beaconmesh"
         minSdk = 26 // Lowered to 26 as per TODO.md
-        targetSdk = 35
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 

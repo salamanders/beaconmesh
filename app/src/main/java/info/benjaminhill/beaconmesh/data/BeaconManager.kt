@@ -107,7 +107,7 @@ class BeaconManager(
                 isAdvertising.set(false)
             }
 
-            delay(MeshConfig.ADVERTISE_DURATION_MS)
+            delay(MeshConfig.ADVERTISE_DURATION)
 
             connectionsClient.stopAdvertising()
             isAdvertising.set(false)
