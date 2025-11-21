@@ -6,11 +6,13 @@ import androidx.lifecycle.viewModelScope
 import info.benjaminhill.beaconmesh.data.BeaconManager
 import info.benjaminhill.beaconmesh.data.MeshRepository
 import info.benjaminhill.beaconmesh.domain.model.Packet
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import kotlin.random.Random
 
 class MeshViewModel(
     private val meshRepository: MeshRepository,
@@ -34,7 +36,9 @@ class MeshViewModel(
         // Start listening for relay requests
         viewModelScope.launch {
             meshRepository.relayQueue.collect { packet ->
-                Timber.d("Relaying packet: ${packet.sequence}")
+                val jitter = Random.nextLong(500, 3000)
+                Timber.d("Relaying packet: ${packet.sequence} with jitter: ${jitter}ms")
+                delay(jitter)
                 beaconManager.advertisePacket(packet)
             }
         }
