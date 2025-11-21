@@ -2,18 +2,17 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
     namespace = "info.benjaminhill.beaconmesh"
-    compileSdk {
-        version = release(36)
-    }
+    compileSdk = 35 // Set explicit stable SDK version
 
     defaultConfig {
         applicationId = "info.benjaminhill.beaconmesh"
-        minSdk = 33
-        targetSdk = 36
+        minSdk = 26 // Lowered to 26 as per TODO.md
+        targetSdk = 35
         versionCode = 1
         versionName = "1.0"
 
@@ -39,7 +38,6 @@ android {
     buildFeatures {
         compose = true
     }
-    buildToolsVersion = "36.1.0"
 }
 
 dependencies {
@@ -51,6 +49,13 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
+    implementation(libs.androidx.compose.material.icons.extended)
+
+    implementation(libs.play.services.nearby)
+    implementation(libs.timber)
+    implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.serialization.cbor)
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
