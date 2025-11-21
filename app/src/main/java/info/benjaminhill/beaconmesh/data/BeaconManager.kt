@@ -16,6 +16,8 @@ import info.benjaminhill.beaconmesh.domain.model.Packet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
@@ -34,8 +36,17 @@ class BeaconManager(
     private val _discoveredPackets = MutableSharedFlow<Packet>(extraBufferCapacity = 64)
     val discoveredPackets = _discoveredPackets.asSharedFlow()
 
+    private val packetQueue = Channel<Packet>(
+        capacity = 15,
+        onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
+
     private var advertisingJob: Job? = null
     private val isAdvertising = AtomicBoolean(false)
+
+    init {
+        startQueueProcessing()
+    }
 
     // Dummy callback - we never connect
     private val connectionLifecycleCallback = object : ConnectionLifecycleCallback() {
@@ -80,43 +91,55 @@ class BeaconManager(
      * This implements the "Duty Cycle".
      */
     fun advertisePacket(packet: Packet) {
-        // Cancel previous advertising job if any
-        advertisingJob?.cancel()
+        val result = packetQueue.trySend(packet)
+        if (result.isSuccess) {
+            Timber.d("Packet added to queue: ${packet.sequence}")
+        } else {
+            Timber.w("Packet queue full/closed, failed to add: ${packet.sequence}")
+        }
+    }
 
-        val payload = packet.toBase64()
-        Timber.d("Advertising payload: $payload")
-
+    private fun startQueueProcessing() {
         advertisingJob = scope.launch(Dispatchers.IO) {
-            if (isAdvertising.get()) {
+            for (packet in packetQueue) {
+                val payload = packet.toBase64()
+                Timber.d("Processing queue item, advertising payload: $payload")
+
+                if (isAdvertising.get()) {
+                    connectionsClient.stopAdvertising()
+                    delay(500) // Wait for radio to clear
+                }
+
+                val options = AdvertisingOptions.Builder().setStrategy(strategy).build()
+
+                connectionsClient.startAdvertising(
+                    payload,
+                    serviceId,
+                    connectionLifecycleCallback,
+                    options
+                ).addOnSuccessListener {
+                    Timber.d("Advertising started: ${packet.sequence}")
+                    isAdvertising.set(true)
+                }.addOnFailureListener { e ->
+                    Timber.e(e, "Advertising failed")
+                    isAdvertising.set(false)
+                }
+
+                delay(MeshConfig.ADVERTISE_DURATION)
+
                 connectionsClient.stopAdvertising()
-                delay(500) // Wait for radio to clear
-            }
-
-            val options = AdvertisingOptions.Builder().setStrategy(strategy).build()
-
-            connectionsClient.startAdvertising(
-                payload,
-                serviceId,
-                connectionLifecycleCallback,
-                options
-            ).addOnSuccessListener {
-                Timber.d("Advertising started: ${packet.sequence}")
-                isAdvertising.set(true)
-            }.addOnFailureListener { e ->
-                Timber.e(e, "Advertising failed")
                 isAdvertising.set(false)
+                Timber.d("Advertising stopped (Duty Cycle end)")
+
+                // Small cooldown between packets to ensure clean state
+                delay(500)
             }
-
-            delay(MeshConfig.ADVERTISE_DURATION)
-
-            connectionsClient.stopAdvertising()
-            isAdvertising.set(false)
-            Timber.d("Advertising stopped (Duty Cycle end)")
         }
     }
 
     fun stopAll() {
         advertisingJob?.cancel()
+        packetQueue.close() // Or clear? Close stops iteration.
         connectionsClient.stopAdvertising()
         connectionsClient.stopDiscovery()
         connectionsClient.stopAllEndpoints()
