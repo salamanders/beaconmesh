@@ -36,7 +36,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import info.benjaminhill.beaconmesh.domain.model.Packet
 import info.benjaminhill.beaconmesh.ui.theme.BeaconMeshTheme
 
@@ -85,7 +84,10 @@ fun StatusInputSection(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surfaceVariant, shape = MaterialTheme.shapes.medium)
+            .background(
+                MaterialTheme.colorScheme.surfaceVariant,
+                shape = MaterialTheme.shapes.medium
+            )
             .padding(16.dp)
     ) {
         Text(
@@ -162,7 +164,9 @@ fun MessageCard(packet: Packet) {
                     fontWeight = FontWeight.Medium
                 )
                 Text(
-                    text = "Source: ${packet.sourceId.toUInt().toString(16).uppercase()} | Seq: ${packet.sequence} | TTL: ${packet.ttl}",
+                    text = "Source: ${
+                        packet.sourceId.toUInt().toString(16).uppercase()
+                    } | Seq: ${packet.sequence} | TTL: ${packet.ttl}",
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.Gray
                 )

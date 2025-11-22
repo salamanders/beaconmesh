@@ -21,7 +21,11 @@ class PacketTest {
 
         assertNotNull("Deserialized packet should not be null", deserializedPacket)
         assertEquals("NetID should match", MeshConfig.NET_ID, deserializedPacket?.netId)
-        assertEquals("TargetID should match", MeshConfig.BROADCAST_TARGET_ID, deserializedPacket?.targetId)
+        assertEquals(
+            "TargetID should match",
+            MeshConfig.BROADCAST_TARGET_ID,
+            deserializedPacket?.targetId
+        )
         assertEquals("SourceID should match", 123456, deserializedPacket?.sourceId)
         assertEquals("Sequence should match", 42.toShort(), deserializedPacket?.sequence)
         assertEquals("TTL should match", 3.toByte(), deserializedPacket?.ttl)

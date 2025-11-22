@@ -22,7 +22,4 @@ object MeshConfig {
 
     // Max items in the queue before we start dropping packets
     const val MAX_QUEUE_SIZE = 50
-
-    // Time to wait between re-discovery cycles (if needed)
-     val DISCOVERY_CYCLE = 30.seconds
 }

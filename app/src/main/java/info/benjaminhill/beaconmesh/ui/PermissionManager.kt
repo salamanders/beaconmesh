@@ -1,6 +1,5 @@
 package info.benjaminhill.beaconmesh.ui
 
-import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.activity.compose.rememberLauncherForActivityResult

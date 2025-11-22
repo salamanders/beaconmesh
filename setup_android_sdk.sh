@@ -42,8 +42,8 @@ if ! grep -q "android.enableJetifier" gradle.properties; then
     echo "android.enableJetifier=true" >> gradle.properties
 fi
 
-if ! grep -q "org.gradle.jvmargs" gradle.properties; then
-    echo "org.gradle.jvmargs=-Xmx2048m" >> gradle.properties
+if ! grep -q "org.gradle.jvmArgs" gradle.properties; then
+    echo "org.gradle.jvmArgs=-Xmx2048m" >> gradle.properties
 fi
 
 echo "Android SDK setup complete."

@@ -3,17 +3,22 @@ package info.benjaminhill.beaconmesh.data
 import info.benjaminhill.beaconmesh.domain.DeviceIdentity
 import info.benjaminhill.beaconmesh.domain.MeshConfig
 import info.benjaminhill.beaconmesh.domain.model.Packet
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
 import timber.log.Timber
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.random.Random
 
 // Manual DI for simplicity as per snippet style, or just Singleton
 class MeshRepository(
-    private val deviceIdentity: DeviceIdentity
+    private val deviceIdentity: DeviceIdentity,
+    private val scope: CoroutineScope
 ) {
     // Cache: "SourceID:Seq" -> Timestamp
     private val seenMessages = ConcurrentHashMap<String, Long>()
@@ -71,7 +76,12 @@ class MeshRepository(
             // If target is us, we consume and maybe don't relay?
             // Connectionless mesh usually floods, so relaying continues until TTL dies.
 
-            _relayQueue.tryEmit(rebroadcastPacket)
+            scope.launch {
+                val delayMs = Random.nextLong(500, 2001) // 500 to 2000 ms inclusive
+                Timber.d("Applying relay jitter: $delayMs ms for packet ${rebroadcastPacket.sequence}")
+                delay(delayMs)
+                _relayQueue.tryEmit(rebroadcastPacket)
+            }
         }
     }
 

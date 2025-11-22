@@ -6,7 +6,6 @@ import com.google.android.gms.nearby.connection.AdvertisingOptions
 import com.google.android.gms.nearby.connection.ConnectionInfo
 import com.google.android.gms.nearby.connection.ConnectionLifecycleCallback
 import com.google.android.gms.nearby.connection.ConnectionResolution
-import com.google.android.gms.nearby.connection.ConnectionsStatusCodes
 import com.google.android.gms.nearby.connection.DiscoveredEndpointInfo
 import com.google.android.gms.nearby.connection.DiscoveryOptions
 import com.google.android.gms.nearby.connection.EndpointDiscoveryCallback
@@ -25,9 +24,10 @@ import timber.log.Timber
 import java.util.concurrent.LinkedBlockingDeque
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
+import kotlin.time.Duration.Companion.milliseconds
 
 class BeaconManager(
-    private val context: Context,
+    context: Context,
     private val scope: CoroutineScope
 ) {
     private val connectionsClient = Nearby.getConnectionsClient(context)
@@ -52,6 +52,7 @@ class BeaconManager(
             // Reject all connections. We only want the advertisement.
             connectionsClient.rejectConnection(endpointId)
         }
+
         override fun onConnectionResult(endpointId: String, result: ConnectionResolution) {}
         override fun onDisconnected(endpointId: String) {}
     }
@@ -100,19 +101,22 @@ class BeaconManager(
             while (isActive) {
                 val packet = try {
                     packetQueue.take()
-                } catch (e: InterruptedException) {
+                } catch (_: InterruptedException) {
                     break
                 }
                 val payload = packet.toBase64()
                 val queueSize = packetQueue.size
                 // Dynamic duration: 15s if empty, down to 500ms if full
-                val durationMs = max(500L, MeshConfig.MAX_ADVERTISE_DURATION.inWholeMilliseconds / (queueSize + 1))
+                val duration = max(
+                    500L,
+                    MeshConfig.MAX_ADVERTISE_DURATION.inWholeMilliseconds / (queueSize + 1)
+                ).milliseconds
 
-                Timber.d("Processing queue item, queue size: $queueSize, advertising for $durationMs ms. Payload: $payload")
+                Timber.d("Processing queue item, queue size: $queueSize, advertising for $duration ms. Payload: $payload")
 
                 if (isAdvertising.get()) {
                     connectionsClient.stopAdvertising()
-                    delay(500) // Wait for radio to clear
+                    delay(500.milliseconds) // Wait for radio to clear
                 }
 
                 val options = AdvertisingOptions.Builder().setStrategy(strategy).build()
@@ -130,14 +134,14 @@ class BeaconManager(
                     isAdvertising.set(false)
                 }
 
-                delay(durationMs)
+                delay(duration)
 
                 connectionsClient.stopAdvertising()
                 isAdvertising.set(false)
                 Timber.d("Advertising stopped (Duty Cycle end)")
 
                 // Small cooldown between packets to ensure clean state
-                delay(500)
+                delay(500.milliseconds)
             }
         }
     }

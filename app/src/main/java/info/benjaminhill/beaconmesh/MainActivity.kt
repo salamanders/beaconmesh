@@ -35,7 +35,7 @@ class MainActivity : ComponentActivity() {
 
         val deviceIdentity = DeviceIdentity(applicationContext)
         beaconManager = BeaconManager(applicationContext, lifecycleScope)
-        val meshRepository = MeshRepository(deviceIdentity)
+        val meshRepository = MeshRepository(deviceIdentity, lifecycleScope)
 
         val factory = MeshViewModel.Factory(meshRepository, beaconManager)
         viewModel = ViewModelProvider(this, factory)[MeshViewModel::class.java]
@@ -48,14 +48,12 @@ class MainActivity : ComponentActivity() {
 
                     val permissions = mutableListOf(
                         Manifest.permission.ACCESS_FINE_LOCATION,
-                        Manifest.permission.ACCESS_COARSE_LOCATION
+                        Manifest.permission.ACCESS_COARSE_LOCATION,
+                        Manifest.permission.BLUETOOTH_SCAN,
+                        Manifest.permission.BLUETOOTH_ADVERTISE,
+                        Manifest.permission.BLUETOOTH_CONNECT
                     )
 
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                        permissions.add(Manifest.permission.BLUETOOTH_SCAN)
-                        permissions.add(Manifest.permission.BLUETOOTH_ADVERTISE)
-                        permissions.add(Manifest.permission.BLUETOOTH_CONNECT)
-                    }
                     if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                         permissions.add(Manifest.permission.NEARBY_WIFI_DEVICES)
                     }
