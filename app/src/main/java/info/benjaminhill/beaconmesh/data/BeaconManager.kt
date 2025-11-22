@@ -16,14 +16,15 @@ import info.benjaminhill.beaconmesh.domain.model.Packet
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.util.concurrent.LinkedBlockingDeque
 import java.util.concurrent.atomic.AtomicBoolean
+import kotlin.math.max
 
 class BeaconManager(
     private val context: Context,
@@ -36,10 +37,7 @@ class BeaconManager(
     private val _discoveredPackets = MutableSharedFlow<Packet>(extraBufferCapacity = 64)
     val discoveredPackets = _discoveredPackets.asSharedFlow()
 
-    private val packetQueue = Channel<Packet>(
-        capacity = 15,
-        onBufferOverflow = BufferOverflow.DROP_OLDEST
-    )
+    private val packetQueue = LinkedBlockingDeque<Packet>(MeshConfig.MAX_QUEUE_SIZE)
 
     private var advertisingJob: Job? = null
     private val isAdvertising = AtomicBoolean(false)
@@ -91,19 +89,26 @@ class BeaconManager(
      * This implements the "Duty Cycle".
      */
     fun advertisePacket(packet: Packet) {
-        val result = packetQueue.trySend(packet)
-        if (result.isSuccess) {
-            Timber.d("Packet added to queue: ${packet.sequence}")
-        } else {
-            Timber.w("Packet queue full/closed, failed to add: ${packet.sequence}")
+        while (!packetQueue.offer(packet)) {
+            packetQueue.poll() // Drop oldest
         }
+        Timber.d("Packet added to queue: ${packet.sequence}. Queue size: ${packetQueue.size}")
     }
 
     private fun startQueueProcessing() {
         advertisingJob = scope.launch(Dispatchers.IO) {
-            for (packet in packetQueue) {
+            while (isActive) {
+                val packet = try {
+                    packetQueue.take()
+                } catch (e: InterruptedException) {
+                    break
+                }
                 val payload = packet.toBase64()
-                Timber.d("Processing queue item, advertising payload: $payload")
+                val queueSize = packetQueue.size
+                // Dynamic duration: 15s if empty, down to 500ms if full
+                val durationMs = max(500L, MeshConfig.MAX_ADVERTISE_DURATION.inWholeMilliseconds / (queueSize + 1))
+
+                Timber.d("Processing queue item, queue size: $queueSize, advertising for $durationMs ms. Payload: $payload")
 
                 if (isAdvertising.get()) {
                     connectionsClient.stopAdvertising()
@@ -125,7 +130,7 @@ class BeaconManager(
                     isAdvertising.set(false)
                 }
 
-                delay(MeshConfig.ADVERTISE_DURATION)
+                delay(durationMs)
 
                 connectionsClient.stopAdvertising()
                 isAdvertising.set(false)
@@ -139,7 +144,7 @@ class BeaconManager(
 
     fun stopAll() {
         advertisingJob?.cancel()
-        packetQueue.close() // Or clear? Close stops iteration.
+        packetQueue.clear()
         connectionsClient.stopAdvertising()
         connectionsClient.stopDiscovery()
         connectionsClient.stopAllEndpoints()
