@@ -18,7 +18,10 @@ object MeshConfig {
     const val SERVICE_ID = "MSH"
 
     // Time to advertise a message before stopping (Duty Cycle)
-    val ADVERTISE_DURATION = 15.seconds
+    val MAX_ADVERTISE_DURATION = 15.seconds
+
+    // Max items in the queue before we start dropping packets
+    const val MAX_QUEUE_SIZE = 50
 
     // Time to wait between re-discovery cycles (if needed)
      val DISCOVERY_CYCLE = 30.seconds
