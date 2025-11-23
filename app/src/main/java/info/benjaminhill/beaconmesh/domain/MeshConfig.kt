@@ -22,4 +22,9 @@ object MeshConfig {
 
     // Max items in the queue before we start dropping packets
     const val MAX_QUEUE_SIZE = 50
+
+    // Flipper Zero Remote Control
+    // UUID: 183e895c-2fc8-406c-941d-4032d84c6c9a
+    const val FLIPPER_SERVICE_UUID_STRING = "183e895c-2fc8-406c-941d-4032d84c6c9a"
+    const val FLIPPER_SOURCE_ID: Int = 0xF1199E0
 }
