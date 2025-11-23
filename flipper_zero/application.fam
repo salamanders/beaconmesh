@@ -1,0 +1,10 @@
+App(
+    appid="beacon_remote",
+    name="Beacon Remote",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="beacon_remote_app",
+    requires=["gui"],
+    stack_size=2 * 1024,
+    order=20,
+    fap_category="Bluetooth",
+)

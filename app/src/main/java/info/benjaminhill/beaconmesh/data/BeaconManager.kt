@@ -1,6 +1,12 @@
 package info.benjaminhill.beaconmesh.data
 
+import android.bluetooth.BluetoothManager
+import android.bluetooth.le.ScanCallback
+import android.bluetooth.le.ScanFilter
+import android.bluetooth.le.ScanResult
+import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.os.ParcelUuid
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
 import com.google.android.gms.nearby.connection.ConnectionInfo
@@ -21,6 +27,9 @@ import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.nio.ByteBuffer
+import java.nio.ByteOrder
+import java.nio.charset.StandardCharsets
 import java.util.concurrent.LinkedBlockingDeque
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.max
@@ -30,9 +39,15 @@ class BeaconManager(
     context: Context,
     private val scope: CoroutineScope
 ) {
+    // Nearby Connections
     private val connectionsClient = Nearby.getConnectionsClient(context)
     private val serviceId = MeshConfig.SERVICE_ID
     private val strategy = Strategy.P2P_POINT_TO_POINT
+
+    // Standard BLE
+    private val bluetoothManager = context.getSystemService(Context.BLUETOOTH_SERVICE) as? BluetoothManager
+    private val bluetoothAdapter = bluetoothManager?.adapter
+    private val bluetoothLeScanner = bluetoothAdapter?.bluetoothLeScanner
 
     private val _discoveredPackets = MutableSharedFlow<Packet>(extraBufferCapacity = 64)
     val discoveredPackets = _discoveredPackets.asSharedFlow()
@@ -73,16 +88,68 @@ class BeaconManager(
         }
     }
 
+    private val flipperScanCallback = object : ScanCallback() {
+        override fun onScanResult(callbackType: Int, result: ScanResult) {
+            val scanRecord = result.scanRecord ?: return
+            val serviceUuid = ParcelUuid.fromString(MeshConfig.FLIPPER_SERVICE_UUID_STRING)
+            val data = scanRecord.getServiceData(serviceUuid) ?: return
+
+            if (data.size < 3) return // Seq(2) + Payload(1+)
+
+            try {
+                val buffer = ByteBuffer.wrap(data).order(ByteOrder.LITTLE_ENDIAN)
+                val sequence = buffer.short
+                val payloadBytes = ByteArray(data.size - 2)
+                buffer.get(payloadBytes)
+                val payload = String(payloadBytes, StandardCharsets.UTF_8)
+
+                val packet = Packet(
+                    sourceId = MeshConfig.FLIPPER_SOURCE_ID,
+                    sequence = sequence,
+                    ttl = MeshConfig.INITIAL_TTL,
+                    payload = payload
+                )
+                _discoveredPackets.tryEmit(packet)
+                Timber.d("Received Flipper packet: $payload (Seq: $sequence)")
+            } catch (e: Exception) {
+                Timber.e(e, "Error parsing Flipper packet")
+            }
+        }
+    }
+
     fun startScanning() {
         Timber.i("Starting Discovery...")
         val options = DiscoveryOptions.Builder().setStrategy(strategy).build()
         connectionsClient.startDiscovery(serviceId, endpointDiscoveryCallback, options)
             .addOnSuccessListener { Timber.d("Discovery started") }
             .addOnFailureListener { e -> Timber.e(e, "Discovery failed") }
+
+        // Start BLE Scan for Flipper
+        try {
+            val filter = ScanFilter.Builder()
+                .setServiceUuid(ParcelUuid.fromString(MeshConfig.FLIPPER_SERVICE_UUID_STRING))
+                .build()
+            val settings = ScanSettings.Builder()
+                .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
+                .build()
+
+            bluetoothLeScanner?.startScan(listOf(filter), settings, flipperScanCallback)
+            Timber.d("BLE Scanning started for Flipper")
+        } catch (e: SecurityException) {
+            Timber.e(e, "Missing permission for BLE scan")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to start BLE scan")
+        }
     }
 
     fun stopScanning() {
         connectionsClient.stopDiscovery()
+        try {
+            bluetoothLeScanner?.stopScan(flipperScanCallback)
+            Timber.d("BLE Scanning stopped")
+        } catch (e: Exception) {
+            Timber.e(e, "Failed to stop BLE scan")
+        }
     }
 
     /**
