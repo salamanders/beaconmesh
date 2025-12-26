@@ -4,9 +4,12 @@ import android.bluetooth.BluetoothManager
 import android.bluetooth.le.ScanCallback
 import android.bluetooth.le.ScanFilter
 import android.bluetooth.le.ScanResult
+import android.Manifest
 import android.bluetooth.le.ScanSettings
 import android.content.Context
+import android.content.pm.PackageManager
 import android.os.ParcelUuid
+import androidx.core.content.ContextCompat
 import com.google.android.gms.nearby.Nearby
 import com.google.android.gms.nearby.connection.AdvertisingOptions
 import com.google.android.gms.nearby.connection.ConnectionInfo
@@ -36,7 +39,7 @@ import kotlin.math.max
 import kotlin.time.Duration.Companion.milliseconds
 
 class BeaconManager(
-    context: Context,
+    private val context: Context,
     private val scope: CoroutineScope
 ) {
     // Nearby Connections
@@ -145,8 +148,10 @@ class BeaconManager(
     fun stopScanning() {
         connectionsClient.stopDiscovery()
         try {
-            bluetoothLeScanner?.stopScan(flipperScanCallback)
-            Timber.d("BLE Scanning stopped")
+            if (ContextCompat.checkSelfPermission(context, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
+                bluetoothLeScanner?.stopScan(flipperScanCallback)
+                Timber.d("BLE Scanning stopped")
+            }
         } catch (e: Exception) {
             Timber.e(e, "Failed to stop BLE scan")
         }
